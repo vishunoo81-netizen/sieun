@@ -2304,6 +2304,53 @@ function resetSetup(){
   }
 })();
 
+function addStudent(){
+  const rawName = (document.getElementById('sName')?.value||'').trim();
+  const name = normalizeName(rawName);
+  const cls = document.getElementById('sClass')?.value;
+  if(!name||!cls){ showToast('이름과 반을 입력해주세요'); return; }
+  if(isDuplicateStudent(name,cls)){ showToast('이미 등록된 학생이에요 ('+cls+' '+name+')'); return; }
+  const students = getStudents();
+  const ids = Object.keys(students).map(k=>parseInt(k.replace('S',''))).filter(n=>!isNaN(n));
+  const nextId = 'S'+String(Math.max(0,...ids)+1).padStart(3,'0');
+  const newStudent = {student_id:nextId, name:name, class_id:cls, status:'active'};
+  students[nextId] = newStudent;
+  localStorage.setItem('se-students', JSON.stringify(students));
+  if(hasSB()) saveStudentToSB(newStudent);
+  showToast(name+' ('+cls+') 추가됐어요!');
+  const el = document.getElementById('sName');
+  if(el) el.value = '';
+  if(document.getElementById('screen-student').classList.contains('active')) renderStudentPage();
+  else renderAdmin();
+}
+
+function openOverride(sid, cls){
+  const modal = document.createElement('div');
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:300;display:flex;align-items:flex-end;';
+  modal.innerHTML = `
+    <div style="background:white;border-radius:24px 24px 0 0;padding:28px 22px 40px;width:100%">
+      <div style="font-size:16px;font-weight:700;margin-bottom:20px;text-align:center">학생 상태 변경</div>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px">
+        <button onclick="applyOverride('${sid}','${cls}','A')" style="background:var(--lv-a);color:var(--lv-a-text);border:none;border-radius:12px;padding:16px;font-size:15px;font-weight:700;font-family:'Noto Sans KR',sans-serif;cursor:pointer;">🟢 안정</button>
+        <button onclick="applyOverride('${sid}','${cls}','B')" style="background:var(--lv-b);color:var(--lv-b-text);border:none;border-radius:12px;padding:16px;font-size:15px;font-weight:700;font-family:'Noto Sans KR',sans-serif;cursor:pointer;">🟡 유지 필요</button>
+        <button onclick="applyOverride('${sid}','${cls}','C')" style="background:var(--lv-c);color:var(--lv-c-text);border:none;border-radius:12px;padding:16px;font-size:15px;font-weight:700;font-family:'Noto Sans KR',sans-serif;cursor:pointer;">🔴 특별 관리</button>
+      </div>
+      <button onclick="this.closest('[style*=fixed]').remove()" style="width:100%;background:#f3f4f6;color:#6b7280;border:none;border-radius:12px;padding:14px;font-size:14px;font-weight:700;font-family:'Noto Sans KR',sans-serif;cursor:pointer;">취소</button>
+    </div>`;
+  document.body.appendChild(modal);
+  window._overrideModal = modal;
+}
+
+function applyOverride(sid, cls, newLevel){
+  if(window._overrideModal) window._overrideModal.remove();
+  if(!store.clinic[sid]) store.clinic[sid] = {};
+  store.clinic[sid].finalLevel = newLevel;
+  saveStore();
+  const labels = {A:'🟢 안정', B:'🟡 유지 필요', C:'🔴 특별 관리'};
+  showToast(labels[newLevel]+'으로 변경됐어요');
+  renderTeacher();
+}
+
 </script>
 </body>
 </html>
