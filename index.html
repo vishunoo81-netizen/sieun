@@ -788,6 +788,11 @@ function enterApp(){
   document.getElementById('loginScreen').style.display='none';
   document.getElementById('appScreen').style.display='block';
   document.getElementById('topbarSub').textContent=getTodayLabel();
+  // 로그인 상태 저장 (24시간)
+  localStorage.setItem('se-session', JSON.stringify({
+    user: currentUser,
+    expires: Date.now() + 24*60*60*1000
+  }));
   // Supabase에서 학생/반 데이터 동기화 (백그라운드)
   syncFromSupabase();
   // 첫 방문 가이드 (담임만)
@@ -969,7 +974,14 @@ async function syncFromSupabase(){
     return;
   }
   try{
-    showToast('데이터 동기화 중...');
+    showToast('동기화 중...');
+    // 선생님 동기화
+    const {data:staffData} = await sb.from('staff').select('*');
+    if(staffData&&staffData.length>0){
+      const staffMap={};
+      staffData.forEach(t=>{ staffMap[t.id]={teacher_id:t.id,name:t.name,loginId:t.login_id,pin:t.pin,role:t.role,classes:t.classes||[],active:t.active}; });
+      localStorage.setItem('se-teachers',JSON.stringify(staffMap));
+    }
     // 반 동기화
     const classes = await loadClassesFromSB();
     // 학생 동기화
@@ -1582,6 +1594,16 @@ function addTeacher(){
   const tid=`T${String(Math.max(0,...ids)+1).padStart(3,'0')}`;
   teachers[tid]={teacher_id:tid,name,loginId:lid,pin,role,classes:cls,active:true};
   localStorage.setItem('se-teachers',JSON.stringify(teachers));
+  // Supabase에도 저장
+  if(hasSB()){
+    sb.from('staff').upsert({
+      id: tid, name: name, login_id: lid,
+      pin: pin, role: role, classes: cls, active: true
+    },{onConflict:'id'}).then(({error})=>{
+      if(error) console.error('선생님 Supabase 저장 실패:', error);
+      else console.log('선생님 Supabase 저장 완료');
+    });
+  }
   showToast(`${name} 선생님 추가됐어요!`);
   renderAdmin();
 }
