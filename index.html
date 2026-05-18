@@ -918,8 +918,8 @@ function downloadExcelTemplate(){
   if(typeof XLSX==='undefined'){ showToast('잠시 후 다시 시도해주세요'); return; }
   const students = Object.values(getStudents()).filter(s=>s.status!=='withdrawn'&&s.status!=='paused');
   const rows = [
-    ['날짜','학생명','반','단어교재','단어범위','점수','재시험','관찰1(50자)','관찰2(50자)','관찰3(50자)','CRT여부','CRT점수'],
-    ...students.map(s=>[getTodayLabel(), s.name, s.class_id,'','','','없음','','','','없음',''])
+    ['날짜','학생명','반','단어교재','단어범위','단어점수','재시험','학생특징','CRT여부','CRT점수','CRT관찰','특이사항'],
+    ...students.map(s=>[getTodayLabel(), s.name, s.class_id,'','','','없음','','없음','','',''])
   ];
   const ws = XLSX.utils.aoa_to_sheet(rows);
   const wb = XLSX.utils.book_new();
@@ -929,27 +929,30 @@ function downloadExcelTemplate(){
 }
 
 function applyExcelRow(sid, row, offset){
-  // offset: 날짜 컬럼이 있으면 1, 없으면 0
+  // PDF 양식 기준 컬럼:
+  // 0=날짜 1=학생명 2=반 3=단어교재 4=단어범위 5=단어점수 6=재시험 7=학생특징 8=CRT여부 9=CRT점수 10=CRT관찰 11=특이사항
   const o = offset||0;
   ensureClinic(sid);
-  // 컬럼: (날짜) 학생명 반 단어교재 단어범위 점수 재시험 관찰1 관찰2 관찰3 CRT여부 CRT점수
-  // 인덱스:  0+o  1+o  2+o   3+o    4+o   5+o   6+o   7+o   8+o   9+o  10+o
-  if(row[2+o]) store.clinic[sid].bookName     = String(row[2+o]).trim();
-  if(row[3+o]) store.clinic[sid].range        = String(row[3+o]).trim();
-  if(row[4+o]) store.clinic[sid].score        = String(row[4+o]).trim();
-  if(row[5+o]) store.clinic[sid].retestStatus = String(row[5+o]).trim();
-  if(row[6+o]) store.clinic[sid].obs0         = String(row[6+o]).trim().slice(0,50);
-  if(row[7+o]) store.clinic[sid].obs1         = String(row[7+o]||'').trim().slice(0,50);
-  if(row[8+o]) store.clinic[sid].obs2         = String(row[8+o]||'').trim().slice(0,50);
-  if(row[9+o]) store.clinic[sid].crtYn        = String(row[9+o]).trim();
-  if(row[10+o]) store.clinic[sid].crtScore    = String(row[10+o]).trim();
-  // 집중도: 별도 컬럼이 없으면 자동 판단
-  store.clinic[sid].observation = [store.clinic[sid].obs0,store.clinic[sid].obs1,store.clinic[sid].obs2].filter(Boolean).join(' / ');
+  if(row[3+o]) store.clinic[sid].bookName     = String(row[3+o]).trim();
+  if(row[4+o]) store.clinic[sid].range        = String(row[4+o]).trim();
+  if(row[5+o]) store.clinic[sid].score        = String(row[5+o]).trim();
+  if(row[6+o]) store.clinic[sid].retestStatus = String(row[6+o]).trim();
+  if(row[7+o]) store.clinic[sid].obs0         = String(row[7+o]||'').trim().slice(0,50);
+  if(row[8+o]) store.clinic[sid].crtYn        = String(row[8+o]||'').trim();
+  if(row[9+o]) store.clinic[sid].crtScore     = String(row[9+o]||'').trim();
+  if(row[10+o]) store.clinic[sid].crtObs      = String(row[10+o]||'').trim().slice(0,100);
+  if(row[11+o]) store.clinic[sid].special     = String(row[11+o]||'').trim().slice(0,100);
+  store.clinic[sid].observation = [store.clinic[sid].obs0, store.clinic[sid].crtObs].filter(Boolean).join(' / ');
   // 단어 상태 자동 판단
   const rt = store.clinic[sid].retestStatus||'';
   if(rt==='없음'||rt==='-'||rt==='') store.clinic[sid].wordStatus='통과';
-  else if(rt.includes('3차')||rt.includes('2차')) store.clinic[sid].wordStatus='미흡';
-  else if(rt) store.clinic[sid].wordStatus='재시험 필요';
+  else if(rt.includes('있음')||rt.includes('재')) store.clinic[sid].wordStatus='재시험';
+  else store.clinic[sid].wordStatus=rt;
+  // CRT 상태
+  const crt = store.clinic[sid].crtYn||'';
+  if(crt==='있음'||crt==='O'||crt==='o') store.clinic[sid].crtStatus='완료';
+  else if(crt&&crt!=='없음'&&crt!=='X') store.clinic[sid].crtStatus=crt; // 날짜나 메모
+  else store.clinic[sid].crtStatus='';
 }
 
 function closeLevelGuide(){
@@ -1268,12 +1271,12 @@ function renderTeacher(){
   let html=`
   <div style="background:white;border-radius:12px;padding:10px 14px;margin-bottom:14px;box-shadow:var(--shadow);display:flex;align-items:center;gap:8px;flex-wrap:wrap">
     <div style="font-size:12px;font-weight:700;color:var(--sub)">날짜</div>
-    <button onclick="setWorkingDate(null)" style="border:1.5px solid ${isToday?'var(--g3)':'var(--line)'};background:${isToday?'var(--g3)':'white'};color:${isToday?'white':'var(--sub)'};border-radius:20px;padding:5px 12px;font-size:12px;font-family:'Noto Sans KR',sans-serif;cursor:pointer;font-weight:${isToday?'700':'500'}">오늘</button>
+    <button onclick="setWorkingDate(null)" style="border:1.5px solid ${isToday?'var(--g3)':'var(--line)'};background:${isToday?'var(--g3)':'white'};color:${isToday?'white':'var(--sub)'};border-radius:20px;padding:5px 12px;font-size:12px;font-family:'Noto Sans KR',sans-serif;cursor:pointer;">오늘</button>
     <button onclick="setWorkingDate(getYesterdayKey())" style="border:1.5px solid ${selectedDateKey===getYesterdayKey()?'var(--g3)':'var(--line)'};background:${selectedDateKey===getYesterdayKey()?'var(--g3)':'white'};color:${selectedDateKey===getYesterdayKey()?'white':'var(--sub)'};border-radius:20px;padding:5px 12px;font-size:12px;font-family:'Noto Sans KR',sans-serif;cursor:pointer;">어제</button>
     <input type="date" onchange="setWorkingDate(this.value.replace(/-/g,''))" style="border:1.5px solid var(--line);border-radius:20px;padding:4px 10px;font-size:12px;font-family:'Noto Sans KR',sans-serif;outline:none;color:var(--sub);">
     ${!isToday?`<span style="font-size:11px;color:var(--amber);font-weight:700">📅 ${workLabel} 기준</span>`:''}
   </div>
-  <div class="date-bar">${isManager?'👀':'✏️'} ${workLabel} · ${currentUser.name}</div>
+  <div class="date-bar">✏️ ${workLabel} · ${currentUser.name}</div>
   ${isManager?'<div class="info-note">상담실장 모드 — 전체 학생 조회 가능합니다.</div>':''}
   `;
 
@@ -1281,106 +1284,60 @@ function renderTeacher(){
   html += `<div class="class-tabs">${myClasses.map((c,i)=>`<button class="class-tab ${i===0?'on':''}" onclick="switchTab(this,'counsel','${c}')">${c}</button>`).join('')}</div>`;
 
   myClasses.forEach((cls, ci) => {
-    const td = store.teacher[cls]||{};
     const classStudents = getStudentsByClass(cls);
     html += `<div class="class-panel ${ci===0?'on':''}" id="counsel-panel-${cssId(cls)}">`;
 
-    // 반 공통 진도/숙제 (접힘 처리)
-    html += `
-      <div class="card" style="margin-bottom:12px">
-        <div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer" onclick="toggleProgressCard('prog-${cssId(cls)}')">
-          <div class="card-title" style="margin-bottom:0">수업 진도 · 숙제</div>
-          <span style="font-size:12px;color:var(--muted)" id="prog-toggle-${cssId(cls)}">${td.progress||td.homework?'▲ 접기':'▼ 열기'}</span>
-        </div>
-        <div id="prog-${cssId(cls)}" style="display:${td.progress||td.homework?'block':'none'};margin-top:12px">
-          <div class="fg">
-            <label>오늘 진도</label>
-            <textarea id="prog-ta-${cssId(cls)}" rows="2"
-              placeholder="예) 2과 관계대명사 7~10단계"
-              oninput="teacherChanged()" style="margin-bottom:6px">${td.progress||''}</textarea>
-            <div style="display:flex;gap:6px">
-              <button class="tbtn" onclick="saveField('prog-ta-${cssId(cls)}','prog','${cls}')">💾 저장</button>
-              <button class="tbtn tbtn-del" onclick="clearField('prog-ta-${cssId(cls)}','${cls}','prog')">삭제</button>
-            </div>
-          </div>
-          <div class="fg" style="margin-top:8px">
-            <label>다음 숙제</label>
-            <textarea id="hw-ta-${cssId(cls)}" rows="2"
-              placeholder="예) 워크북 p.80-82, 단어 3회"
-              oninput="teacherChanged()" style="margin-bottom:6px">${td.homework||''}</textarea>
-            <div style="display:flex;gap:6px">
-              <button class="tbtn" onclick="saveField('hw-ta-${cssId(cls)}','hw','${cls}')">💾 저장</button>
-              <button class="tbtn tbtn-del" onclick="clearField('hw-ta-${cssId(cls)}','${cls}','hw')">삭제</button>
-            </div>
-          </div>
-        </div>
-      </div>`;
-
-    // 학생별 상담 붙여넣기 카드
     classStudents.forEach(s => {
       const sid = s.student_id;
       const clinic = store.clinic[sid]||{};
-      const ind = (td.students||{})[sid]||{};
       const level = clinic.finalLevel||classifyStudent(clinic);
       const lvInfo = getLevelInfo(level);
-      const prevLevel = getPrevLevel(sid);
-      const change = getLevelChangeLabel(prevLevel, level);
-
-      // 오늘 상담 기록 불러오기
       const todayCounsel = getCounselRecord(sid, getWorkingDateKey());
       const clinicText = (() => {
         const parts = [
-          clinic.bookName&&clinic.range ? `${clinic.bookName} ${clinic.range}` : (clinic.range||''),
-          clinic.score ? `점수: ${clinic.score}` : '',
-          clinic.wordStatus||'',
-          clinic.retestStatus&&clinic.retestStatus!=='없음' ? `재시험: ${clinic.retestStatus}` : ''
+          clinic.range ? clinic.range : '',
+          clinic.score ? clinic.score : '',
+          clinic.wordStatus ? clinic.wordStatus : ''
         ].filter(Boolean);
         return parts.join(' · ');
       })();
 
       html += `
-        <div class="card" style="margin-bottom:10px">
+        <div class="card" style="margin-bottom:10px;padding:14px">
           <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
             <div style="width:36px;height:36px;border-radius:50%;background:var(--g5);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:var(--g2);flex-shrink:0">${s.name[0]}</div>
             <div style="flex:1">
               <div style="display:flex;align-items:center;gap:6px">
                 <span style="font-size:15px;font-weight:700">${s.name}</span>
                 <span class="level-badge ${lvInfo.badgeCls}" style="font-size:10px">${lvInfo.label}</span>
-                ${change.text?`<span class="level-change ${change.cls}" style="font-size:10px">${change.text}</span>`:''}
               </div>
-              ${clinicText?`<div style="font-size:11px;color:var(--muted);margin-top:2px">📋 ${clinicText}</div>`:'<div style="font-size:11px;color:var(--lv-c-text);background:var(--lv-c);border-radius:4px;padding:1px 6px;display:inline-block;margin-top:2px">클리닉 미입력</div>'}
+              ${clinicText?`<div style="font-size:11px;color:var(--muted);margin-top:2px">📋 ${clinicText}</div>`:''}
             </div>
-            <button onclick="renderStudentDetail('${sid}')" style="background:none;border:1.5px solid var(--line);border-radius:8px;padding:5px 10px;font-size:11px;font-family:'Noto Sans KR',sans-serif;color:var(--sub);cursor:pointer;">기록 📋</button>
+            <button onclick="renderStudentDetail('${sid}')" style="background:none;border:1.5px solid var(--line);border-radius:8px;padding:5px 10px;font-size:11px;font-family:'Noto Sans KR',sans-serif;color:var(--sub);cursor:pointer;flex-shrink:0">기록</button>
           </div>
 
-          <!-- 상담 붙여넣기 칸 -->
-          <div style="position:relative">
-            <textarea id="counsel-${sid}"
-              rows="3"
-              placeholder="오늘 보낸 문자/상담 내용을 붙여넣기하세요.&#10;그대로 저장됩니다. 수정 없이 OK."
-              style="width:100%;border:1.5px solid var(--line);border-radius:10px;padding:10px 12px;font-size:13px;font-family:'Noto Sans KR',sans-serif;color:var(--text);outline:none;resize:none;line-height:1.6;background:${todayCounsel?'#f0fdf4':'white'}"
-              oninput="autoResizeCounsel(this)">${todayCounsel||''}</textarea>
-            ${todayCounsel?'<div style="position:absolute;top:8px;right:10px;font-size:10px;color:var(--g3);font-weight:700">✓ 저장됨</div>':''}
-          </div>
-          <div style="display:flex;gap:6px;margin-top:6px">
-            <button onclick="saveCounselRecord('${sid}','${cls}')" style="flex:1;background:var(--g3);color:white;border:none;border-radius:8px;padding:9px;font-size:13px;font-weight:700;font-family:'Noto Sans KR',sans-serif;cursor:pointer;">💾 저장</button>
-            <button onclick="clearCounselRecord('${sid}')" style="background:#f3f4f6;color:var(--muted);border:none;border-radius:8px;padding:9px 14px;font-size:13px;font-family:'Noto Sans KR',sans-serif;cursor:pointer;">✕</button>
-          </div>
+          <textarea id="counsel-${sid}"
+            rows="3"
+            placeholder="보낸 카톡/문자 그대로 붙여넣기 하세요."
+            style="width:100%;border:1.5px solid ${todayCounsel?'var(--g4)':'var(--line)'};border-radius:10px;padding:10px 12px;font-size:13px;font-family:'Noto Sans KR',sans-serif;color:var(--text);outline:none;resize:none;line-height:1.6;background:${todayCounsel?'#f0fdf4':'white'}"
+            oninput="autoSaveCounsel('${sid}','${cls}',this)"
+            >${todayCounsel||''}</textarea>
+          <div id="counsel-status-${sid}" style="font-size:11px;color:var(--g3);margin-top:3px">${todayCounsel?'✓ 저장됨':''}</div>
         </div>`;
     });
 
-    html += `</div>`; // class-panel 닫기
+    html += `</div>`;
   });
 
   document.getElementById('screen-teacher').innerHTML = html;
 
-  // 저장 버튼
   const btn = document.createElement('button');
   btn.className = 'bottom-btn';
-  btn.textContent = '💾 오늘 기록 전체 저장';
+  btn.textContent = '💾 전체 저장';
   btn.onclick = () => { saveAllCounselRecords(); };
   document.getElementById('appScreen').appendChild(btn);
 }
+
 
 function toggleProgressCard(id){
   const el = document.getElementById(id);
@@ -2371,6 +2328,36 @@ function applyOverride(sid, cls, newLevel){
   const labels = {A:'🟢 안정', B:'🟡 유지 필요', C:'🔴 특별 관리'};
   showToast(labels[newLevel]+'으로 변경됐어요');
   renderTeacher();
+}
+
+// 자동 저장 (2초 후)
+const counselTimers = {};
+function autoSaveCounsel(sid, cls, el){
+  const statusEl = document.getElementById('counsel-status-'+sid);
+  if(statusEl) statusEl.textContent = '입력 중...';
+  clearTimeout(counselTimers[sid]);
+  counselTimers[sid] = setTimeout(()=>{
+    const text = el.value.trim();
+    if(!text){ if(statusEl) statusEl.textContent=''; return; }
+    localStorage.setItem(getCounselKey(sid), text);
+    saveHistory({
+      student_id:sid, name:getStudents()[sid]?.name||'',
+      class_id:cls, date:getWorkingDateLabel(),
+      date_key:getWorkingDateKey(), message:text,
+      type:'counsel', at:new Date().toISOString()
+    });
+    if(hasSB()){
+      saveCounselToSB(sid,cls,getWorkingDateKey(),text).then(ok=>{
+        if(statusEl) statusEl.textContent = ok?'✓ 저장됨':'✓ 로컬 저장됨';
+        el.style.borderColor = 'var(--g4)';
+        el.style.background = '#f0fdf4';
+      });
+    } else {
+      if(statusEl) statusEl.textContent = '✓ 저장됨';
+      el.style.borderColor = 'var(--g4)';
+      el.style.background = '#f0fdf4';
+    }
+  }, 1500);
 }
 
 </script>
