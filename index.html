@@ -2271,16 +2271,34 @@ function resetSetup(){
 }
 
 
-// 페이지 로드 즉시 Supabase 초기화
+// 페이지 로드 즉시 실행
 (function(){
+  // Supabase 초기화
   try{
     if(typeof supabase !== 'undefined'){
       sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-      console.log('Supabase 즉시 초기화 성공');
+      console.log('Supabase 초기화 성공');
     }
   }catch(e){
-    console.error('Supabase 즉시 초기화 실패:', e);
+    console.error('Supabase 초기화 실패:', e);
   }
+  // 세션 복원 (24시간 유지)
+  document.addEventListener('DOMContentLoaded', function(){
+    const cfg = getConfig();
+    if(!cfg.initialized){
+      document.getElementById('loginScreen').style.display='none';
+      document.getElementById('setupScreen').style.display='flex';
+      return;
+    }
+    try{
+      const session = JSON.parse(localStorage.getItem('se-session')||'{}');
+      if(session.user && session.expires && Date.now() < session.expires){
+        currentUser = session.user;
+        enterApp();
+        return;
+      }
+    }catch(e){}
+  });
 })();
 
 function addStudent(){
