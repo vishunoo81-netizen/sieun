@@ -320,9 +320,7 @@ textarea{resize:none;line-height:1.6;}
     <div class="login-err" id="loginErr" style="display:none"></div>
   </div>
   <div style="margin-top:20px;text-align:center;position:relative;z-index:1;display:flex;flex-direction:column;gap:8px;align-items:center">
-    <button onclick="showLoginDebug()" style="background:none;border:1px solid rgba(255,255,255,0.2);color:rgba(255,255,255,0.5);font-size:11px;font-family:'Noto Sans KR',sans-serif;cursor:pointer;padding:6px 14px;border-radius:20px;">
-      로그인 안 되나요?
-    </button>
+
   </div>
 </div>
 
@@ -737,27 +735,7 @@ function doLogin(){
 }
 
 function showLoginDebug(){
-  const cfg = getConfig();
-  const teachers = getTeachers();
-  const modal = document.createElement('div');
-  modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:999;display:flex;align-items:flex-end;';
-  const adminInfo = cfg.adminId ? `원장 아이디: ${cfg.adminId}` : '원장 계정 없음';
-  const teacherList = Object.values(teachers).map(t=>`${t.name} (@${t.loginId})`).join(', ')||'없음';
-  modal.innerHTML=`
-    <div style="background:white;border-radius:24px 24px 0 0;padding:28px 22px 40px;width:100%">
-      <div style="font-size:16px;font-weight:700;margin-bottom:16px">로그인 진단</div>
-      <div style="font-size:13px;line-height:2;color:#374151;background:#f9fafb;border-radius:10px;padding:14px;margin-bottom:16px">
-        <div>초기화 여부: <strong>${cfg.initialized?'✅ 완료':'❌ 미완료'}</strong></div>
-        <div>${adminInfo}</div>
-        <div>등록 선생님: ${teacherList}</div>
-      </div>
-      <div style="display:flex;flex-direction:column;gap:8px">
-        ${!cfg.initialized ? `<button onclick="document.getElementById('setupScreen').style.display='flex';document.getElementById('loginScreen').style.display='none';this.closest('[style*=fixed]').remove()" style="background:var(--g3);color:white;border:none;border-radius:12px;padding:14px;font-size:14px;font-weight:700;font-family:'Noto Sans KR',sans-serif;cursor:pointer;">초기 설정 하러가기</button>` : ''}
-        <button onclick="if(confirm('모든 설정을 초기화하고 다시 시작합니까?\n\n⚠️ 선생님 계정이 삭제됩니다.')){localStorage.clear();location.reload();}" style="background:#fef2f2;color:#991b1b;border:none;border-radius:12px;padding:14px;font-size:14px;font-weight:700;font-family:'Noto Sans KR',sans-serif;cursor:pointer;">⚠️ 전체 초기화 (처음부터)</button>
-        <button onclick="this.closest('[style*=fixed]').remove()" style="background:#f3f4f6;color:#374151;border:none;border-radius:12px;padding:14px;font-size:14px;font-weight:700;font-family:'Noto Sans KR',sans-serif;cursor:pointer;">닫기</button>
-      </div>
-    </div>`;
-  document.body.appendChild(modal);
+  showToast('아이디와 PIN을 확인해주세요. 문제 시 원장님께 문의하세요.');
 }
 
 function doSetup(){
@@ -2376,6 +2354,30 @@ function autoSaveCounsel(sid, cls, el){
       el.style.background = '#f0fdf4';
     }
   }, 1500);
+}
+
+function showLoginHelp(){
+  const modal = document.createElement('div');
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:300;display:flex;align-items:flex-end;';
+  modal.innerHTML = `
+    <div style="background:white;border-radius:24px 24px 0 0;padding:28px 22px 40px;width:100%">
+      <div style="font-size:16px;font-weight:700;margin-bottom:16px;text-align:center">로그인 문제 해결</div>
+      <div style="font-size:14px;color:#374151;line-height:1.8;margin-bottom:20px">
+        <div style="margin-bottom:8px">✅ <strong>선생님</strong>: 아이디/PIN 확인 후 원장님께 문의</div>
+        <div>🔧 <strong>원장님</strong>: 아래 초기 설정 버튼 클릭</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <button onclick="document.getElementById('setupScreen').style.display='flex';document.getElementById('loginScreen').style.display='none';this.closest('[style*=fixed]').remove()" 
+          style="background:var(--g3);color:white;border:none;border-radius:12px;padding:14px;font-size:14px;font-weight:700;font-family:'Noto Sans KR',sans-serif;cursor:pointer;">
+          원장 초기 설정
+        </button>
+        <button onclick="this.closest('[style*=fixed]').remove()" 
+          style="background:#f3f4f6;color:#374151;border:none;border-radius:12px;padding:14px;font-size:14px;font-weight:700;font-family:'Noto Sans KR',sans-serif;cursor:pointer;">
+          닫기
+        </button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
 }
 
 </script>
