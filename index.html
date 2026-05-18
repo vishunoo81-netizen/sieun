@@ -686,7 +686,7 @@ function getEdited(){
 // ===== AUTH =====
 function pinMove(i){ /* 구버전 PIN 입력 - 더 이상 사용 안함 */ }
 
-function doLogin(){
+async function doLogin(){
   const id = (document.getElementById('loginId')?.value||'').trim();
   const pin = (document.getElementById('loginPin')?.value||'').trim();
 
@@ -722,9 +722,24 @@ function doLogin(){
     enterApp(); return;
   }
 
-  // 실패 - 원인 파악
+  // 실패 - Supabase에서 재확인
+  if(hasSB()){
+    try{
+      const {data:staffData} = await sb.from('staff').select('*');
+      if(staffData&&staffData.length>0){
+        const found = staffData.find(t=>t.login_id===id && t.pin===pin && t.active!==false);
+        if(found){
+          const staffMap={};
+          staffData.forEach(t=>{ staffMap[t.id]={teacher_id:t.id,name:t.name,loginId:t.login_id,pin:t.pin,role:t.role,classes:t.classes||[],active:t.active}; });
+          localStorage.setItem('se-teachers',JSON.stringify(staffMap));
+          currentUser={teacher_id:found.id,name:found.name,loginId:found.login_id,pin:found.pin,role:found.role,classes:found.classes||[],active:found.active};
+          enterApp(); return;
+        }
+      }
+    }catch(e){ console.error('Supabase 재확인 실패:', e); }
+  }
   if(!cfg.adminId && Object.keys(teachers).length===0){
-    showErr('설정이 필요해요. 아래 "로그인 안 되나요?" 버튼을 눌러주세요');
+    showErr('아이디 또는 PIN이 맞지 않아요');
   } else if(cfg.adminId && id===cfg.adminId){
     showErr('PIN이 맞지 않아요 (원장 계정)');
   } else {
