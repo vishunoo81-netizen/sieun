@@ -2260,14 +2260,12 @@ function resetSetup(){
   }catch(e){
     console.error('Supabase 초기화 실패:', e);
   }
-  // 세션 복원 (24시간 유지)
+  // 세션 복원 (24시간 유지) - 초기 설정 없이 바로 로그인
   document.addEventListener('DOMContentLoaded', function(){
-    const cfg = getConfig();
-    if(!cfg.initialized){
-      document.getElementById('loginScreen').style.display='none';
-      document.getElementById('setupScreen').style.display='flex';
-      return;
-    }
+    // 초기 설정 화면 절대 안 보여줌
+    document.getElementById('setupScreen').style.display='none';
+    document.getElementById('loginScreen').style.display='flex';
+    // 세션 복원
     try{
       const session = JSON.parse(localStorage.getItem('se-session')||'{}');
       if(session.user && session.expires && Date.now() < session.expires){
