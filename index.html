@@ -1023,16 +1023,34 @@ function showMenu(){
   document.getElementById('screen-menu').innerHTML=html;
 }
 
+// 화면 히스토리 스택
+const screenHistory = [];
+
 function showScreen(name){
+  // 현재 화면 히스토리에 저장
+  const current = document.querySelector('.screen.active');
+  if(current && current.id !== 'screen-'+name){
+    screenHistory.push(current.id.replace('screen-',''));
+    if(screenHistory.length > 10) screenHistory.shift();
+  }
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById(`screen-${name}`).classList.add('active');
   document.querySelectorAll('.bottom-btn').forEach(b=>b.remove());
 }
 
+function goBack(){
+  if(screenHistory.length === 0){ showMenu(); return; }
+  const prev = screenHistory.pop();
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  const el = document.getElementById('screen-'+prev);
+  if(el) el.classList.add('active');
+  else showMenu();
+}
+
 // ===== CLINIC =====
 function renderClinic(){
   showScreen('clinic');
-  setTopbar('클리닉 입력','←',showMenu,getTodayLabel());
+  setTopbar('클리닉 입력','←',goBack,getTodayLabel());
 
   const students = Object.values(getStudents()).filter(s=>s.status!=='withdrawn'&&s.status!=='paused');
   const filled = students.filter(s=>isClinicFilled(s.student_id)).length;
@@ -1263,7 +1281,7 @@ function collectClinic(){
 // ===== TEACHER =====
 function renderTeacher(){
   showScreen('teacher');
-  setTopbar('상담 기록','←',showMenu,getTodayLabel());
+  setTopbar('상담 기록','←',goBack,getTodayLabel());
 
   const isManager = currentUser.role==='manager';
   const workLabel = getWorkingDateLabel();
@@ -1457,7 +1475,7 @@ function teacherChanged(){
 // ============================================================
 function renderHistory(){
   showScreen('history');
-  setTopbar('기록','←',showMenu,'');
+  setTopbar('기록','←',goBack,'');
   const hist=getHistory().slice(0,100);
   let html=`<div class="date-bar">📜 발송/상담 기록</div>`;
   if(hist.length===0){
@@ -1488,7 +1506,7 @@ function renderHistory(){
 function renderAdmin(){
   if(currentUser?.role!=='admin'){ showToast('원장 권한 필요'); return; }
   showScreen('admin');
-  setTopbar('원장 대시보드','←',showMenu,'');
+  setTopbar('원장 대시보드','←',goBack,'');
   const activeStudents=Object.values(getStudents()).filter(s=>s.status!=='withdrawn'&&s.status!=='paused');
   const clinicFilled=activeStudents.filter(s=>isClinicFilled(s.student_id)).length;
   const clinicTotal=activeStudents.length;
@@ -1692,7 +1710,7 @@ async function generateMessages(){
 
 function renderResults(messages, fromDraft=false){
   showScreen('teacher');
-  setTopbar('기록','←',renderTeacher,'');
+  setTopbar('기록','←',goBack,'');
   let html=`<div class="date-bar">📜 ${getWorkingDateLabel()}</div>`;
   messages.forEach(m=>{
     html+=`<div class="card">
@@ -1786,7 +1804,7 @@ function toggleInactiveClasses(){
 // ============================================================
 function renderSearch(){
   showScreen('search');
-  setTopbar('학생 검색','←',showMenu,'');
+  setTopbar('학생 검색','←',goBack,'');
   const myClasses=getMyClasses();
   document.getElementById('screen-search').innerHTML=`
     <div class="date-bar">🔍 학생 검색</div>
@@ -1847,7 +1865,7 @@ function renderStudentDetail(sid){
   const teacherName=Object.values(teachers).find(t=>(t.classes||[]).includes(s.class_id))?.name||'미배정';
   const prevLevel=getPrevLevel(sid);
   const change=getLevelChangeLabel(prevLevel,level);
-  setTopbar(`${s.name} 기록`,'←',()=>{showScreen('search');document.getElementById('screen-search').classList.add('active');},'');
+  setTopbar(`${s.name} 기록`,'←',goBack,'');
   document.getElementById('screen-detail').innerHTML=`
     <div class="card" style="padding:16px">
       <div style="display:flex;align-items:center;gap:14px">
@@ -1999,7 +2017,7 @@ function changeStudentStatus(sid,newStatus){ const students=getStudents(); if(!s
 
 function renderStudentPage(){
   showScreen('student');
-  setTopbar('학생 관리','←',showMenu,'');
+  setTopbar('학생 관리','←',goBack,'');
   document.getElementById('screen-student').innerHTML = renderStudentMgmt();
 }
 
