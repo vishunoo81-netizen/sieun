@@ -817,7 +817,7 @@ function handleClinicExcel(e){
         if(s.status!=='withdrawn') nameMap[s.name+'_'+s.class_id] = s.student_id;
       });
 
-      let matched=0, errors=[], autoCreated=[];
+      let matched=0, errors=[], autoCreated=[], skipped=[];
       // 첫 행이 헤더인지 확인 (학생명 포함이면 헤더로 간주)
       const startRow = rows[0] && String(rows[0][0]).includes('학생') ? 1 : 0;
 
@@ -836,13 +836,18 @@ function handleClinicExcel(e){
 
         if(!sid){
           // 이름만으로 시도
-          const sidByName = Object.values(students).find(s=>s.name===name&&s.status!=='withdrawn')?.student_id;
+          const normName2 = name.replace(/\s/g,'');
+          const sidByName = Object.values(students).find(s=>s.name.replace(/\s/g,'')===normName2&&s.status!=='withdrawn')?.student_id;
           if(sidByName){
             const firstCellB = String(row[0]||'');
             const hasDateB = /^\d{4}/.test(firstCellB)||firstCellB.includes('-')||firstCellB.includes('/');
             applyExcelRow(sidByName, row, hasDateB?1:0);
             matched++;
           } else if(name && cls){
+            // 자동 생성 전 전체 중복 체크
+            const normCheck = name.replace(/\s/g,'');
+            const existAny = Object.values(students).find(s=>s.name.replace(/\s/g,'')===normCheck&&s.class_id===cls&&s.status!=='withdrawn');
+            if(existAny){ skipped.push(name+' ('+cls+') - 이미 존재'); matched++; applyExcelRow(existAny.student_id, row, hasDateC?1:0); return; }
             // 학생 없으면 자동 생성
             const ids=Object.keys(students).map(k=>parseInt(k.replace('S',''))).filter(n=>!isNaN(n));
             const newId=`S${String(Math.max(0,...ids)+1).padStart(3,'0')}`;
@@ -889,6 +894,10 @@ function handleClinicExcel(e){
       if(autoCreated.length>0){
         html += `<div style="color:var(--g3);font-weight:600;margin-bottom:4px">🆕 신규 학생 ${autoCreated.length}명 자동 등록</div>`;
         html += autoCreated.map(n=>`<div style="color:var(--g3)">· ${n}</div>`).join('');
+      }
+      if(skipped.length>0){
+        html += `<div style="color:var(--amber);font-weight:600;margin-bottom:4px">⚠️ 중복 ${skipped.length}명 건너뜀 (기존 기록 업데이트)</div>`;
+        html += skipped.map(n=>`<div style="color:var(--amber)">· ${n}</div>`).join('');
       }
       if(errors.length>0){
         html += `<div style="color:var(--red);font-weight:600;margin-bottom:4px">⚠️ 매칭 실패 ${errors.length}건</div>`;
@@ -2147,9 +2156,9 @@ function switchTab(btn, prefix, cls){
 // ============================================================
 function renderStudentMgmt(){
   const students = Object.values(getStudents());
-  const active = students.filter(s=>s.status==='active');
-  const paused = students.filter(s=>s.status==='paused');
-  const withdrawn = students.filter(s=>s.status==='withdrawn');
+  const active = students.filter(s=>s.status==='active').sort((a,b)=>a.name.localeCompare(b.name,'ko'));
+  const paused = students.filter(s=>s.status==='paused').sort((a,b)=>a.name.localeCompare(b.name,'ko'));
+  const withdrawn = students.filter(s=>s.status==='withdrawn').sort((a,b)=>a.name.localeCompare(b.name,'ko'));
   const showHidden = localStorage.getItem('se-show-hidden')==='1';
 
   let html = `<div class="sec-div">학생 관리</div>
@@ -2161,10 +2170,11 @@ function renderStudentMgmt(){
   <div class="sec-div">재원 (${active.length}명)</div>`;
 
   active.forEach(s=>{
-    html+=`<div class="teacher-card">
-      <div class="teacher-avatar">${s.name[0]}</div>
+    const isDup = active.filter(x=>x.name===s.name).length > 1;
+    html+=`<div class="teacher-card" style="${isDup?'border:1.5px solid var(--red);background:#fff5f5':''}">
+      <div class="teacher-avatar" style="${isDup?'background:#fee2e2;color:var(--red)':''}">${s.name[0]}</div>
       <div class="teacher-info">
-        <div class="teacher-name">${s.name}</div>
+        <div class="teacher-name">${s.name}${isDup?' <span style="font-size:10px;color:red;font-weight:700">⚠️중복</span>':''}</div>
         <div class="teacher-meta">${s.class_id}</div>
       </div>
       <div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end">
@@ -2172,6 +2182,7 @@ function renderStudentMgmt(){
         <button class="tbtn" onclick="editStudentName('${s.student_id}')">✏️</button>
         <button class="tbtn" onclick="changeStudentStatus('${s.student_id}','paused')">휴원</button>
         <button class="tbtn tbtn-del" onclick="changeStudentStatus('${s.student_id}','withdrawn')">퇴원</button>
+        <button class="tbtn tbtn-del" onclick="deleteStudent('${s.student_id}','${s.name}')">삭제</button>
       </div>
     </div>`;
   });
@@ -2398,6 +2409,21 @@ function showLoginHelp(){
       </div>
     </div>`;
   document.body.appendChild(modal);
+}
+
+function deleteStudent(sid, name){
+  if(!confirm(name+' 학생을 완전히 삭제할까요?\n이 작업은 되돌릴 수 없어요.')) return;
+  const students = getStudents();
+  delete students[sid];
+  localStorage.setItem('se-students', JSON.stringify(students));
+  if(hasSB()){
+    sb.from('students').delete().eq('student_id', sid).then(function(r){
+      if(r.error) console.error('학생삭제실패', r.error);
+    });
+  }
+  showToast(name + ' 삭제됐어요');
+  if(document.getElementById('screen-student').classList.contains('active')) renderStudentPage();
+  else renderAdmin();
 }
 
 </script>
