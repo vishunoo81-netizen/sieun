@@ -2269,13 +2269,14 @@ function renderStudentMgmt(){
       <div class="teacher-avatar" style="${isDup?'background:#fee2e2;color:var(--red)':''}">${s.name[0]}</div>
       <div class="teacher-info">
         <div class="teacher-name">${s.name}${isDup?' <span style="font-size:10px;color:red;font-weight:700">⚠️중복</span>':''}</div>
-        <div class="teacher-meta">${s.class_id}</div>
+        <div class="teacher-meta">${s.class_id}${s.phone?' · '+s.phone:''}</div>
       </div>
       <div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end">
         <button class="tbtn" onclick="renderStudentDetail('${s.student_id}')">📋</button>
         <button class="tbtn" onclick="editStudentName('${s.student_id}')">✏️</button>
         <button class="tbtn" onclick="changeStudentStatus('${s.student_id}','paused')">휴원</button>
         <button class="tbtn tbtn-del" onclick="changeStudentStatus('${s.student_id}','withdrawn')">퇴원</button>
+        <button class="tbtn" onclick="editStudentPhone('${s.student_id}','${s.name}')">전화</button>
         <button class="tbtn tbtn-del" onclick="deleteStudent('${s.student_id}','${s.name}')">삭제</button>
       </div>
     </div>`;
@@ -2408,6 +2409,7 @@ function addStudent(){
   const rawName = (document.getElementById('sName')?.value||'').trim();
   const name = normalizeName(rawName);
   const cls = document.getElementById('sClass')?.value;
+  const phone = (document.getElementById('sPhone')?.value||'').trim();
   if(!name||!cls){ showToast('이름과 반을 입력해주세요'); return; }
   if(isDuplicateStudent(name,cls)){ showToast('이미 등록된 학생이에요 ('+cls+' '+name+')'); return; }
   const students = getStudents();
@@ -2527,6 +2529,22 @@ function deleteTodayCounsel(sid){
   if(hasSB()) sb.from('counseling_records').delete().eq('student_id',sid).eq('date_key',dateKey).then(function(r){});
   showToast('삭제됐어요');
   renderTeacher();
+}
+
+function editStudentPhone(sid, name){
+  const students = getStudents();
+  const cur = students[sid]?.phone||'';
+  const p = prompt(name+' 학부모 전화번호\n현재: '+(cur||'없음'));
+  if(p===null) return;
+  students[sid].phone = p.trim();
+  localStorage.setItem('se-students', JSON.stringify(students));
+  if(hasSB()){
+    sb.from('students').update({phone:p.trim()}).eq('student_id',sid).then(function(r){
+      if(r.error) console.error('전화번호 저장 실패', r.error);
+    });
+  }
+  showToast(name+' 전화번호 저장됐어요');
+  renderStudentMgmt();
 }
 
 </script>
