@@ -2256,11 +2256,9 @@ function renderStudentMgmt(){
   const showHidden = localStorage.getItem('se-show-hidden')==='1';
 
   let html = `<div class="sec-div">학생 관리</div>
-  <div class="card"><div class="card-title">학생 추가</div>
-    <div class="fg"><label>이름</label><input type="text" id="sName" placeholder="예) 김민준" autocomplete="off"></div>
-    <div class="fg"><label>반</label><select id="sClass" style="width:100%;border:1.5px solid var(--line);border-radius:10px;padding:10px 13px;font-size:14px;font-family:'Noto Sans KR',sans-serif;outline:none;background:white;">${getAllClasses().map(c=>`<option value="${c}">${c}</option>`).join('')}</select></div>
-    <button style="width:100%;background:var(--g3);color:white;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;font-family:'Noto Sans KR',sans-serif;cursor:pointer;margin-top:4px" onclick="addStudent()">학생 추가</button>
-  </div>
+  <button onclick="openAddStudent()" style="width:100%;background:var(--g3);color:white;border:none;border-radius:12px;padding:14px;font-size:15px;font-weight:700;font-family:'Noto Sans KR',sans-serif;cursor:pointer;margin-bottom:14px;display:flex;align-items:center;justify-content:center;gap:8px">
+    + 학생 추가
+  </button>
   <div class="sec-div">재원 (${active.length}명)</div>`;
 
   active.forEach(s=>{
@@ -2544,6 +2542,61 @@ function editStudentPhone(sid, name){
     });
   }
   showToast(name+' 전화번호 저장됐어요');
+  renderStudentMgmt();
+}
+
+function toggleStudentCard(sid){
+  const el = document.getElementById('scard-'+sid);
+  if(!el) return;
+  el.style.display = el.style.display==='none' ? 'block' : 'none';
+}
+
+function openAddStudent(){
+  const classes = getAllClasses();
+  const modal = document.createElement('div');
+  modal.id = 'addStudentModal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:300;display:flex;align-items:flex-end;';
+  modal.innerHTML = `
+    <div style="background:white;border-radius:24px 24px 0 0;padding:28px 22px 40px;width:100%">
+      <div style="font-size:16px;font-weight:700;margin-bottom:16px">학생 추가</div>
+      <div style="margin-bottom:10px">
+        <div style="font-size:12px;color:var(--sub);font-weight:600;margin-bottom:5px">이름 <span style="color:var(--red)">*</span></div>
+        <input type="text" id="sName" placeholder="예) 김민준" autocomplete="off" style="width:100%;border:1.5px solid var(--line);border-radius:10px;padding:10px 13px;font-size:14px;font-family:'Noto Sans KR',sans-serif;outline:none;">
+      </div>
+      <div style="margin-bottom:10px">
+        <div style="font-size:12px;color:var(--sub);font-weight:600;margin-bottom:5px">반 <span style="color:var(--red)">*</span></div>
+        <select id="sClass" style="width:100%;border:1.5px solid var(--line);border-radius:10px;padding:10px 13px;font-size:14px;font-family:'Noto Sans KR',sans-serif;outline:none;background:white;">
+          ${classes.map(c=>'<option value="'+c+'">'+c+'</option>').join('')}
+        </select>
+      </div>
+      <div style="margin-bottom:10px">
+        <div style="font-size:12px;color:var(--sub);font-weight:600;margin-bottom:5px">📱 학생 전화번호</div>
+        <input type="tel" id="sStudentPhone" placeholder="010-0000-0000" style="width:100%;border:1.5px solid var(--line);border-radius:10px;padding:10px 13px;font-size:14px;font-family:'Noto Sans KR',sans-serif;outline:none;">
+      </div>
+      <div style="margin-bottom:20px">
+        <div style="font-size:12px;color:var(--sub);font-weight:600;margin-bottom:5px">👨 학부모 전화번호</div>
+        <input type="tel" id="sPhone" placeholder="010-0000-0000" style="width:100%;border:1.5px solid var(--line);border-radius:10px;padding:10px 13px;font-size:14px;font-family:'Noto Sans KR',sans-serif;outline:none;">
+      </div>
+      <div style="display:flex;gap:8px">
+        <button onclick="addStudent()" style="flex:1;background:var(--g3);color:white;border:none;border-radius:12px;padding:14px;font-size:15px;font-weight:700;font-family:'Noto Sans KR',sans-serif;cursor:pointer;">추가</button>
+        <button onclick="document.getElementById('addStudentModal').remove()" style="background:#f3f4f6;color:var(--sub);border:none;border-radius:12px;padding:14px 20px;font-size:15px;font-weight:700;font-family:'Noto Sans KR',sans-serif;cursor:pointer;">취소</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+}
+
+function editPhone(sid, type){
+  const students = getStudents();
+  const label = type==='student' ? '학생' : '학부모';
+  const cur = type==='student' ? (students[sid]?.studentPhone||'') : (students[sid]?.phone||'');
+  const val = prompt(label+' 전화번호 입력\n현재: '+(cur||'없음'));
+  if(val===null) return;
+  if(type==='student') students[sid].studentPhone = val.trim();
+  else students[sid].phone = val.trim();
+  localStorage.setItem('se-students', JSON.stringify(students));
+  const upd = type==='student' ? {studentPhone:val.trim()} : {phone:val.trim()};
+  if(hasSB()) sb.from('students').update(upd).eq('student_id',sid).then(function(){});
+  showToast(label+' 전화번호 저장됐어요');
   renderStudentMgmt();
 }
 
