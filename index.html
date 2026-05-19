@@ -1338,11 +1338,14 @@ function renderTeacher(){
 
           <textarea id="counsel-${sid}"
             rows="3"
-            placeholder="보낸 카톡/문자 그대로 붙여넣기 하세요."
+            placeholder="오늘 보낸 카톡/문자 붙여넣기하세요. 자동저장됩니다."
             style="width:100%;border:1.5px solid ${todayCounsel?'var(--g4)':'var(--line)'};border-radius:10px;padding:10px 12px;font-size:13px;font-family:'Noto Sans KR',sans-serif;color:var(--text);outline:none;resize:none;line-height:1.6;background:${todayCounsel?'#f0fdf4':'white'}"
             oninput="autoSaveCounsel('${sid}','${cls}',this)"
             >${todayCounsel||''}</textarea>
-          <div id="counsel-status-${sid}" style="font-size:11px;color:var(--g3);margin-top:3px">${todayCounsel?'✓ 저장됨':''}</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-top:4px">
+            <div id="counsel-status-${sid}" style="font-size:11px;color:var(--g3)">${todayCounsel?'✓ 저장됨':'⬜ 미저장'}</div>
+            ${todayCounsel?`<button onclick="deleteTodayCounsel('${sid}')" style="background:none;border:none;color:var(--muted);font-size:11px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">삭제</button>`:''}
+          </div>
         </div>`;
     });
 
@@ -1518,7 +1521,8 @@ function renderAdmin(){
   html+=`<div class="card"><div class="card-title">오늘 현황</div>
     <div class="stat-grid">
       <div><div class="stat-num" style="color:${notFilled>0?'var(--red)':'var(--g3)'}">${clinicFilled}<span style="font-size:14px;font-weight:500;color:var(--muted)">/${clinicTotal}</span></div><div class="stat-label">클리닉 입력</div></div>
-      <div><div class="stat-num">${todaySent}</div><div class="stat-label">오늘 기록</div></div>
+      <div><div class="stat-num">${todaySent}</div><div class="stat-label">오늘 기록</div>
+      <div><div class="stat-num" style="color:var(--amber)">${clinicTotal-todaySent>0?clinicTotal-todaySent:0}</div><div class="stat-label">상담 미완</div></div></div>
     </div>
     ${notFilled>0?`<div style="margin-top:10px;background:#fef2f2;border-radius:8px;padding:8px 12px;font-size:12px;color:#991b1b">⚠️ 클리닉 미입력 ${notFilled}명</div>`:`<div style="margin-top:10px;background:var(--g6);border-radius:8px;padding:8px 12px;font-size:12px;color:var(--g2)">✅ 오늘 클리닉 전체 입력 완료</div>`}
   </div>`;
@@ -1952,23 +1956,95 @@ function buildKakaoHistory(sid){
   const counselRecords=[];
   for(let i=0;i<localStorage.length;i++){
     const k=localStorage.key(i);
-    if(k&&k.startsWith(`se-counsel-${sid}-`)){
-      const dk=k.replace(`se-counsel-${sid}-`,'');
+    if(k&&k.startsWith('se-counsel-'+sid+'-')){
+      const dk=k.replace('se-counsel-'+sid+'-','');
       const text=localStorage.getItem(k);
       if(text) counselRecords.push({date_key:dk,date:dateKeyToLabel(dk),message:text,type:'counsel'});
     }
   }
   const all=[...history,...counselRecords.filter(c=>!history.some(h=>h.date_key===c.date_key&&h.type==='counsel'))];
   all.sort((a,b)=>(b.date_key||'').localeCompare(a.date_key||''));
-  if(!all.length) return `<div class="card" style="text-align:center;padding:30px;color:var(--muted)">상담 기록이 없어요<br><span style="font-size:11px">오늘 보낸 문자를 붙여넣기하면 여기에 쌓여요</span></div>`;
-  return all.map(h=>`<div class="record-item" style="border-left-color:var(--g4)">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
-      <div class="record-date">${h.date||''}</div>
-      <span style="font-size:10px;background:var(--g6);color:var(--g2);border-radius:4px;padding:2px 6px">${h.type==='counsel'?'상담':'기록'}</span>
-    </div>
-    <div class="record-content" style="white-space:pre-wrap;font-size:12px;line-height:1.7">${h.message||''}</div>
-  </div>`).join('');
+  if(!all.length) return '<div class="card" style="text-align:center;padding:30px;color:var(--muted)">상담 기록이 없어요</div>';
+  return all.map(function(h){
+    const vId='cv-'+sid+'-'+h.date_key;
+    const eId='ce-'+sid+'-'+h.date_key;
+    const msg=(h.message||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    return `<div class="record-item" style="border-left-color:var(--g4);margin-bottom:10px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <div class="record-date">${h.date||''}</div>
+        <div style="display:flex;gap:4px">
+          <button class="tbtn" onclick="editCR('${sid}','${h.date_key}')">수정</button>
+          <button class="tbtn tbtn-del" onclick="deleteCR('${sid}','${h.date_key}')">삭제</button>
+        </div>
+      </div>
+      <div id="${vId}" style="white-space:pre-wrap;font-size:12px;line-height:1.7;color:var(--sub)">${msg}</div>
+      <div id="${eId}" style="display:none">
+        <textarea class="counsel-ta" rows="4">${msg}</textarea>
+        <div style="display:flex;gap:6px;margin-top:6px">
+          <button class="tbtn" style="flex:1;background:var(--g3);color:white" onclick="saveCR('${sid}','${h.date_key}')">저장</button>
+          <button class="tbtn" onclick="cancelCR('${sid}','${h.date_key}')">취소</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
 }
+function editCR(sid,dk){ document.getElementById('cv-'+sid+'-'+dk).style.display='none'; document.getElementById('ce-'+sid+'-'+dk).style.display='block'; }
+function cancelCR(sid,dk){ document.getElementById('cv-'+sid+'-'+dk).style.display='block'; document.getElementById('ce-'+sid+'-'+dk).style.display='none'; }
+function saveCR(sid,dk){
+  const ta=document.getElementById('ce-'+sid+'-'+dk)?.querySelector('textarea');
+  if(!ta||!ta.value.trim()){ showToast('내용을 입력해주세요'); return; }
+  const txt=ta.value.trim();
+  localStorage.setItem('se-counsel-'+sid+'-'+dk, txt);
+  if(hasSB()) saveCounselToSB(sid,'',dk,txt);
+  document.getElementById('cv-'+sid+'-'+dk).textContent=txt;
+  document.getElementById('cv-'+sid+'-'+dk).style.display='block';
+  document.getElementById('ce-'+sid+'-'+dk).style.display='none';
+  showToast('수정됐어요 ✓');
+}
+function deleteCR(sid,dk){
+  if(!confirm('이 상담 기록을 삭제할까요?')) return;
+  localStorage.removeItem('se-counsel-'+sid+'-'+dk);
+  if(hasSB()) sb.from('counseling_records').delete().eq('student_id',sid).eq('date_key',dk).then(function(){});
+  const panel=document.getElementById('tab-kakao-'+sid);
+  if(panel) panel.innerHTML=buildKakaoHistory(sid);
+  showToast('삭제됐어요');
+}
+
+function editCounselRecord(btn){
+  const sid=btn.dataset.sid; const dk=btn.dataset.dk;
+  document.getElementById('cv-'+sid+'-'+dk).style.display='none';
+  document.getElementById('ce-'+sid+'-'+dk).style.display='block';
+}
+function cancelCounselEdit(btn){
+  const sid=btn.dataset.sid; const dk=btn.dataset.dk;
+  document.getElementById('cv-'+sid+'-'+dk).style.display='block';
+  document.getElementById('ce-'+sid+'-'+dk).style.display='none';
+}
+function saveCounselEdit(btn){
+  const sid=btn.dataset.sid; const dk=btn.dataset.dk;
+  const editDiv=document.getElementById('ce-'+sid+'-'+dk);
+  const ta=editDiv.querySelector('textarea');
+  if(!ta) return;
+  const newText=ta.value.trim();
+  if(!newText){ showToast('내용을 입력해주세요'); return; }
+  localStorage.setItem('se-counsel-'+sid+'-'+dk, newText);
+  if(hasSB()) saveCounselToSB(sid,'',dk,newText);
+  document.getElementById('cv-'+sid+'-'+dk).textContent=newText;
+  document.getElementById('cv-'+sid+'-'+dk).style.display='block';
+  editDiv.style.display='none';
+  showToast('수정됐어요 ✓');
+}
+function deleteCounselRecord(btn){
+  if(!confirm('이 상담 기록을 삭제할까요?')) return;
+  const sid=btn.dataset.sid; const dk=btn.dataset.dk;
+  localStorage.removeItem('se-counsel-'+sid+'-'+dk);
+  if(hasSB()) sb.from('counseling_records').delete().eq('student_id',sid).eq('date_key',dk).then(function(r){});
+  const panel=document.getElementById('tab-kakao-'+sid);
+  if(panel) panel.innerHTML=buildKakaoHistory(sid);
+  showToast('삭제됐어요');
+}
+
+
 
 function buildLevelHistory(sid){
   try{
@@ -2393,7 +2469,7 @@ function autoSaveCounsel(sid, cls, el){
     });
     if(hasSB()){
       saveCounselToSB(sid,cls,getWorkingDateKey(),text).then(ok=>{
-        if(statusEl) statusEl.textContent = ok?'✓ 저장됨':'✓ 로컬 저장됨';
+        if(statusEl){ statusEl.textContent = ok?'✓ 저장됨':'✓ 로컬저장됨'; statusEl.style.fontWeight='700'; statusEl.style.fontSize='13px'; }
         el.style.borderColor = 'var(--g4)';
         el.style.background = '#f0fdf4';
       });
@@ -2442,6 +2518,15 @@ function deleteStudent(sid, name){
   showToast(name + ' 삭제됐어요');
   if(document.getElementById('screen-student').classList.contains('active')) renderStudentPage();
   else renderAdmin();
+}
+
+function deleteTodayCounsel(sid){
+  if(!confirm('오늘 상담 기록을 삭제할까요?')) return;
+  const dateKey = getWorkingDateKey();
+  localStorage.removeItem('se-counsel-'+sid+'-'+dateKey);
+  if(hasSB()) sb.from('counseling_records').delete().eq('student_id',sid).eq('date_key',dateKey).then(function(r){});
+  showToast('삭제됐어요');
+  renderTeacher();
 }
 
 </script>
