@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>시은영어 로그인 테스트</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Apple SD Gothic Neo',sans-serif;background:#1a5c38;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;}
+.box{background:white;border-radius:16px;padding:28px 24px;width:100%;max-width:320px;}
+h2{font-size:18px;font-weight:700;margin-bottom:20px;color:#1a5c38;text-align:center;}
+label{display:block;font-size:12px;font-weight:600;color:#4a7c59;margin-bottom:5px;}
+input{width:100%;border:1.5px solid #d1e8d8;border-radius:10px;padding:12px;font-size:15px;outline:none;margin-bottom:14px;-webkit-appearance:none;}
+input:focus{border-color:#52b788;}
+button{width:100%;background:#2d8a56;color:white;border:none;border-radius:10px;padding:14px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px;}
+#msg{font-size:13px;text-align:center;padding:10px;border-radius:8px;display:none;}
+#msg.ok{background:#d8f3dc;color:#1a5c38;}
+#msg.err{background:#fef2f2;color:#991b1b;}
+#log{margin-top:14px;font-size:11px;color:#666;background:#f5f5f5;border-radius:8px;padding:10px;white-space:pre-wrap;max-height:200px;overflow-y:auto;}
+</style>
+</head>
+<body>
+<div class="box">
+  <h2>로그인 테스트</h2>
+  <label>아이디</label>
+  <input type="text" id="id" placeholder="아이디 입력" autocapitalize="none">
+  <label>PIN (4자리)</label>
+  <input type="password" id="pin" placeholder="PIN" maxlength="4" inputmode="numeric">
+  <button onclick="test()">로그인 테스트</button>
+  <div id="msg"></div>
+  <div id="log"></div>
+</div>
+<script>
+const SB_URL = 'https://izmxzjvnjjsuhqpasgxi.supabase.co';
+const SB_KEY = 'sb_publishable_0mEDpGFtxKBizgIkwD66_Q_fpqpoR5n';
+const log = document.getElementById('log');
+const msg = document.getElementById('msg');
+
+function addLog(txt){ log.textContent += txt + '\n'; log.scrollTop=log.scrollHeight; }
+function ok(txt){ msg.className='ok'; msg.style.display='block'; msg.textContent=txt; }
+function err(txt){ msg.className='err'; msg.style.display='block'; msg.textContent=txt; }
+
+// Supabase 초기화
+let sb = null;
+window.addEventListener('load', function(){
+  addLog('페이지 로드 완료');
+  try{
+    if(typeof supabase === 'undefined'){
+      addLog('❌ Supabase 라이브러리 로드 실패');
+      err('Supabase 라이브러리 로드 실패');
+      return;
+    }
+    sb = supabase.createClient(SB_URL, SB_KEY);
+    addLog('✅ Supabase 초기화 완료');
+  }catch(e){
+    addLog('❌ Supabase 초기화 오류: ' + e.message);
+    err('Supabase 초기화 실패');
+  }
+});
+
+async function test(){
+  log.textContent = '';
+  msg.style.display = 'none';
+  const id = document.getElementById('id').value.trim();
+  const pin = document.getElementById('pin').value.trim();
+  addLog('입력 - 아이디: ' + id + ', PIN 길이: ' + pin.length);
+
+  if(!id){ err('아이디 입력해주세요'); return; }
+  if(!pin){ err('PIN 입력해주세요'); return; }
+  if(!sb){ err('Supabase 연결 안됨'); return; }
+
+  try{
+    addLog('Supabase staff 조회 시작...');
+    const { data, error } = await sb.from('staff').select('id, name, login_id, pin, role, active');
+    addLog('조회 완료 - 결과: ' + (data ? data.length + '명' : '없음'));
+    if(error){
+      addLog('❌ 조회 오류: ' + JSON.stringify(error));
+      err('DB 조회 실패: ' + error.message);
+      return;
+    }
+    if(!data || data.length === 0){
+      addLog('❌ staff 테이블 비어있음');
+      err('staff 테이블에 데이터 없음');
+      return;
+    }
+    data.forEach(t => addLog('  - ' + t.name + ' / ' + t.login_id + ' / pin타입:' + typeof t.pin + ' / active:' + t.active));
+    const found = data.find(t => t.login_id === id && String(t.pin) === String(pin) && t.active !== false);
+    if(found){
+      addLog('✅ 로그인 성공: ' + found.name + ' (' + found.role + ')');
+      ok('✅ 로그인 성공: ' + found.name);
+    } else {
+      addLog('❌ 매칭 실패 - 아이디/PIN 불일치');
+      err('아이디 또는 PIN이 맞지 않아요');
+    }
+  }catch(e){
+    addLog('❌ 예외 발생: ' + e.message);
+    err('오류: ' + e.message);
+  }
+}
+</script>
+</body>
+</html>
