@@ -287,7 +287,7 @@ let saveTimer = null;
   document.addEventListener('DOMContentLoaded', ()=>{
     // 세션 복원
     try{
-      const sess = JSON.parse(sessionStorage.getItem('se-session')||'{}');
+      const sess = JSON.parse(localStorage.getItem('se-session')||'{}');
       if(sess.user && sess.expires && Date.now() < sess.expires){
         CU = sess.user;
         enterApp();
@@ -349,16 +349,16 @@ async function doLogin(){
   try{
     const {data:staffList,error} = await sb.from('staff').select('*').eq('active',true);
     const data = (staffList||[]).find(t=>t.login_id===id && String(t.pin)===String(pin));
-    if(error||!data){ err('아이디 또는 PIN이 맞지 않아요'); return; }
+    if(!data){ err('아이디 또는 PIN이 맞지 않아요'); return; }
     CU = { id:data.id, name:data.name, role:data.role, classes:data.classes||[], loginId:data.login_id };
-    sessionStorage.setItem('se-session', JSON.stringify({ user:CU, expires: Date.now()+24*60*60*1000 }));
+    localStorage.setItem('se-session', JSON.stringify({ user:CU, expires: Date.now()+24*60*60*1000 }));
     enterApp();
   }catch(e){ err('로그인 실패. 다시 시도해주세요'); console.error(e); }
 }
 
 function doLogout(){
   CU = null; STORE = {clinic:{},teacher:{}}; navStack = [];
-  sessionStorage.removeItem('se-session');
+  localStorage.removeItem('se-session');
   document.getElementById('loginId').value='';
   document.getElementById('loginPin').value='';
   document.getElementById('loginErr').textContent='';
@@ -783,8 +783,8 @@ async function renderTeacher(){
       // 상담 기록 로드
       let counsel='';
       try{
-        const {data}=await sb.from('counseling_records').select('content').eq('student_id',sid).eq('date_key',workDate()).single();
-        if(data) counsel=data.content||'';
+        const {data:cr}=await sb.from('counseling_records').select('content').eq('student_id',sid).eq('date_key',workDate());
+        counsel=(cr&&cr[0]?.content)||'';
       }catch(e){}
 
       html+=`<div class="tc-card ${lvi.cls}">
@@ -837,7 +837,7 @@ async function renderStudentMgmt(){
   const active=Object.values(students).filter(s=>s.status==='active').sort((a,b)=>a.name.localeCompare(b.name,'ko'));
   const paused=Object.values(students).filter(s=>s.status==='paused');
   const withdrawn=Object.values(students).filter(s=>s.status==='withdrawn');
-  const showHidden=sessionStorage.getItem('se-sh')==='1';
+  const showHidden=localStorage.getItem('se-sh')==='1';
 
   let html=`<button onclick="openAddStudent()" class="btn btn-g2" style="width:100%;padding:14px;font-size:15px;margin-bottom:14px;border-radius:12px">+ 학생 추가</button>
   <div class="sec">재원 (${active.length}명)</div>`;
@@ -881,7 +881,7 @@ async function renderStudentMgmt(){
   render(html);
 }
 
-function toggleHidden(){ sessionStorage.setItem('se-sh',sessionStorage.getItem('se-sh')==='1'?'0':'1'); renderStudentMgmt(); }
+function toggleHidden(){ localStorage.setItem('se-sh',localStorage.getItem('se-sh')==='1'?'0':'1'); renderStudentMgmt(); }
 
 // ===== STUDENT ACTIONS =====
 async function chgStatus(sid,status){
@@ -904,8 +904,8 @@ async function delStudent(sid,name){
 }
 
 async function editStudentName(sid){
-  const {data}=await sb.from('students').select('name').eq('student_id',sid).single();
-  const cur=data?.name||'';
+  const {data:rows}=await sb.from('students').select('name').eq('student_id',sid);
+  const cur=(rows&&rows[0]?.name)||'';
   const n=prompt(`이름 수정\n현재: ${cur}`);
   if(!n?.trim()) return;
   const clean=norm(n);
@@ -916,7 +916,8 @@ async function editStudentName(sid){
 }
 
 async function editPhone(sid){
-  const {data}=await sb.from('students').select('student_phone,parent_phone').eq('student_id',sid).single();
+  const {data:rows}=await sb.from('students').select('student_phone,parent_phone').eq('student_id',sid);
+  const data=rows&&rows[0];
   const modal=createModal(`<div class="modal-title">전화번호 수정</div>
     <div class="fg"><label>📱 학생 전화번호</label><input type="tel" id="mp-stu" value="${data?.student_phone||''}" placeholder="010-0000-0000"></div>
     <div class="fg"><label>👨 학부모 전화번호</label><input type="tel" id="mp-par" value="${data?.parent_phone||''}" placeholder="010-0000-0000"></div>
@@ -981,7 +982,8 @@ async function renderStudentDetail(sid){
   setTopbar('학생 상세', goBack);
   render(`<div class="loading"><div class="spinner"></div></div>`);
 
-  const {data:s}=await sb.from('students').select('*').eq('student_id',sid).single();
+  const {data:sRows}=await sb.from('students').select('*').eq('student_id',sid);
+  const s=sRows&&sRows[0];
   if(!s){ toast('학생 없음'); return; }
 
   const clinic=STORE.clinic[sid]||{};
@@ -1087,7 +1089,8 @@ async function renderStudentDetail(sid){
   html+=`</div>`;
 
   // 메모
-  const {data:memo}=await sb.from('student_memos').select('*').eq('student_id',sid).single().catch(()=>({data:null}));
+  const {data:memoRows}=await sb.from('student_memos').select('*').eq('student_id',sid).catch(()=>({data:[]}));
+  const memo=memoRows&&memoRows[0];
   html+=`<div class="dpanel" id="dt-memo-${sid}">
     <div class="card">
       <div class="card-title">학부모 메모</div>
@@ -1276,7 +1279,8 @@ async function delStaff(id,name){
 }
 
 async function editStaff(id){
-  const {data:t}=await sb.from('staff').select('*').eq('id',id).single();
+  const {data:tRows}=await sb.from('staff').select('*').eq('id',id);
+  const t=tRows&&tRows[0];
   if(!t) return;
   const modal=createModal(`<div class="modal-title">선생님 정보 수정</div>
     <div class="fg"><label>이름</label><input type="text" id="et-n" value="${t.name}"></div>
