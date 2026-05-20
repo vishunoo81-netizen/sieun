@@ -347,14 +347,25 @@ async function doLogin(){
   if(pin.length!==4||!/^\d{4}$/.test(pin)){ err('PIN 4자리 숫자를 입력해주세요'); return; }
   if(!sb){ err('서버 연결 실패. 새로고침 해주세요'); return; }
 
+  if(errEl){ errEl.textContent='staff 조회 중...'; errEl.style.color='var(--g4)'; }
   try{
     const {data:staffList,error} = await sb.from('staff').select('*').eq('active',true);
+    console.log('staffList:', staffList ? staffList.length+'명' : '없음', error);
+    if(error){
+      err('DB 오류: ' + error.message);
+      return;
+    }
+    if(errEl){ errEl.textContent='staff 조회 완료: '+(staffList?staffList.length:0)+'명'; errEl.style.color='var(--g4)'; }
     const data = (staffList||[]).find(t=>t.login_id===id && String(t.pin)===String(pin));
-    if(!data){ err('아이디 또는 PIN이 맞지 않아요'); return; }
+    if(!data){
+      const ids = (staffList||[]).map(t=>t.login_id).join(', ');
+      err('매칭 실패. 입력: '+id+' / 등록된 아이디: '+ids);
+      return;
+    }
     CU = { id:data.id, name:data.name, role:data.role, classes:data.classes||[], loginId:data.login_id };
     localStorage.setItem('se-session', JSON.stringify({ user:CU, expires: Date.now()+24*60*60*1000 }));
     enterApp();
-  }catch(e){ err('로그인 실패. 다시 시도해주세요'); console.error(e); }
+  }catch(e){ err('로그인 실패: '+e.message); console.error(e); }
 }
 window.doLogin = doLogin;
 
