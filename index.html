@@ -855,7 +855,7 @@ async function handleClinicExcel(e){
             students[newId]=newStudent;
             localStorage.setItem('se-students',JSON.stringify(students));
             // Supabase에도 저장
-            if(hasSB()) await saveStudentToSB(newStudent);
+            if(hasSB()) saveStudentToSB(newStudent).then(function(){});
             autoCreated.push(`${name} (${cls})`);
             const firstCellC = String(row[0]||'');
             const hasDateC = /^\d{4}/.test(firstCellC)||firstCellC.includes('-')||firstCellC.includes('/');
