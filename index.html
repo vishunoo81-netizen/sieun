@@ -277,25 +277,23 @@ let navStack = [];
 let saveTimer = null;
 
 // ===== INIT =====
-(function(){
+window.addEventListener('load', function(){
   try{
     if(typeof supabase !== 'undefined'){
       sb = supabase.createClient(SB_URL, SB_KEY);
     }
   }catch(e){ console.error('Supabase 초기화 실패:', e); }
 
-  document.addEventListener('DOMContentLoaded', ()=>{
-    // 세션 복원
-    try{
-      const sess = JSON.parse(localStorage.getItem('se-session')||'{}');
-      if(sess.user && sess.expires && Date.now() < sess.expires){
-        CU = sess.user;
-        enterApp();
-        return;
-      }
-    }catch(e){}
-  });
-})();
+  // 세션 복원
+  try{
+    const sess = JSON.parse(localStorage.getItem('se-session')||'{}');
+    if(sess.user && sess.expires && Date.now() < sess.expires){
+      CU = sess.user;
+      enterApp();
+      return;
+    }
+  }catch(e){}
+});
 
 // ===== UTILS =====
 function today(){ const d=new Date(); return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`; }
