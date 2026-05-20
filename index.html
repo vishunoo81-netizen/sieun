@@ -392,6 +392,8 @@ function doLogout(){
 }
 
 function enterApp(){
+  const errEl = document.getElementById('loginErr');
+  if(errEl) errEl.textContent='';
   showPage('pg-app');
   loadTodayClinic();
   showMenu();
