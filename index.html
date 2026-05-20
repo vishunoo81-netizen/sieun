@@ -931,29 +931,28 @@ function downloadExcelTemplate(){
 }
 
 function applyExcelRow(sid, row, offset){
-  // PDF 양식 기준 컬럼:
-  // 0=날짜 1=학생명 2=반 3=단어교재 4=단어범위 5=단어점수 6=재시험 7=학생특징 8=CRT여부 9=CRT점수 10=CRT관찰 11=특이사항
+  // 새 양식 컬럼:
+  // 0=날짜 1=학생명 2=반 3=단어교재 4=단어범위 5=단어점수 6=재시험 7=관찰 8=CRT여부 9=CRT점수
   const o = offset||0;
   ensureClinic(sid);
   if(row[3+o]) store.clinic[sid].bookName     = String(row[3+o]).trim();
   if(row[4+o]) store.clinic[sid].range        = String(row[4+o]).trim();
   if(row[5+o]) store.clinic[sid].score        = String(row[5+o]).trim();
   if(row[6+o]) store.clinic[sid].retestStatus = String(row[6+o]).trim();
-  if(row[7+o]) store.clinic[sid].obs0         = String(row[7+o]||'').trim().slice(0,50);
+  if(row[7+o]) store.clinic[sid].obs0         = String(row[7+o]||'').trim().slice(0,100);
   if(row[8+o]) store.clinic[sid].crtYn        = String(row[8+o]||'').trim();
   if(row[9+o]) store.clinic[sid].crtScore     = String(row[9+o]||'').trim();
-  if(row[10+o]) store.clinic[sid].crtObs      = String(row[10+o]||'').trim().slice(0,100);
-  if(row[11+o]) store.clinic[sid].special     = String(row[11+o]||'').trim().slice(0,100);
-  store.clinic[sid].observation = [store.clinic[sid].obs0, store.clinic[sid].crtObs].filter(Boolean).join(' / ');
+  store.clinic[sid].obs1 = '';
+  store.clinic[sid].obs2 = '';
+  store.clinic[sid].observation = store.clinic[sid].obs0||'';
   // 단어 상태 자동 판단
   const rt = store.clinic[sid].retestStatus||'';
   if(rt==='없음'||rt==='-'||rt==='') store.clinic[sid].wordStatus='통과';
-  else if(rt.includes('있음')||rt.includes('재')) store.clinic[sid].wordStatus='재시험';
+  else if(rt.includes('있음')||rt.includes('재')) store.clinic[sid].wordStatus='재시험 필요';
   else store.clinic[sid].wordStatus=rt;
   // CRT 상태
   const crt = store.clinic[sid].crtYn||'';
   if(crt==='있음'||crt==='O'||crt==='o') store.clinic[sid].crtStatus='완료';
-  else if(crt&&crt!=='없음'&&crt!=='X') store.clinic[sid].crtStatus=crt; // 날짜나 메모
   else store.clinic[sid].crtStatus='';
 }
 
