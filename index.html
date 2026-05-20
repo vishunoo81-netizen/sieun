@@ -471,12 +471,13 @@ function getStudents(){
   const stored = localStorage.getItem('se-students');
   if(stored){
     const data = JSON.parse(stored);
+    // 기존 데이터에 status 없으면 active로 마이그레이션
     let migrated = false;
     Object.values(data).forEach(s=>{ if(!s.status){ s.status='active'; migrated=true; } });
     if(migrated) localStorage.setItem('se-students', JSON.stringify(data));
     return data;
   }
-  return {};
+  return JSON.parse(JSON.stringify(BASE_STUDENTS));
 }
 const getTeachers = () => JSON.parse(localStorage.getItem('se-teachers')||'{}');
 const getConfig = () => JSON.parse(localStorage.getItem('se-config')||'{}');
@@ -846,8 +847,6 @@ function handleClinicExcel(e){
             // 자동 생성 전 전체 중복 체크
             const normCheck = name.replace(/\s/g,'');
             const existAny = Object.values(students).find(s=>s.name.replace(/\s/g,'')===normCheck&&s.class_id===cls&&s.status!=='withdrawn');
-            const firstCellC = String(row[0]||'');
-            const hasDateC = /^\d{4}/.test(firstCellC)||firstCellC.includes('-')||firstCellC.includes('/');
             if(existAny){ skipped.push(name+' ('+cls+') - 이미 존재'); matched++; applyExcelRow(existAny.student_id, row, hasDateC?1:0); return; }
             // 학생 없으면 자동 생성
             const ids=Object.keys(students).map(k=>parseInt(k.replace('S',''))).filter(n=>!isNaN(n));
@@ -856,8 +855,10 @@ function handleClinicExcel(e){
             students[newId]=newStudent;
             localStorage.setItem('se-students',JSON.stringify(students));
             // Supabase에도 저장
-            if(hasSB()) saveStudentToSB(newStudent);
+            if(hasSB()) await saveStudentToSB(newStudent);
             autoCreated.push(`${name} (${cls})`);
+            const firstCellC = String(row[0]||'');
+            const hasDateC = /^\d{4}/.test(firstCellC)||firstCellC.includes('-')||firstCellC.includes('/');
             applyExcelRow(newId, row, hasDateC?1:0);
             matched++;
           } else {
@@ -2102,21 +2103,10 @@ function renderStudentPage(){
 async function loadStudentsFromSB(){
   if(!hasSB()) return null;
   try{
-    // withdrawn 제외하고 가져옴
-    const { data, error } = await sb.from('students').select('*').neq('status','withdrawn');
+    const { data, error } = await sb.from('students').select('*');
     if(error) throw error;
-    if(!data||data.length===0) return null;
-    // 로컬에서 삭제(withdrawn)한 학생은 복원하지 않음
-    const local = JSON.parse(localStorage.getItem('se-students')||'{}');
     const map={};
-    (data||[]).forEach(s=>{
-      if(local[s.student_id]?.status==='withdrawn') return;
-      map[s.student_id]=s;
-    });
-    // 로컬 withdrawn은 유지
-    Object.entries(local).forEach(([sid,s])=>{
-      if(s.status==='withdrawn') map[sid]=s;
-    });
+    (data||[]).forEach(s=>{ map[s.student_id]=s; });
     localStorage.setItem('se-students',JSON.stringify(map));
     return map;
   }catch(e){ console.error('학생 로드 실패:',e); return null; }
@@ -2136,9 +2126,7 @@ async function saveStudentToSB(student){
       student_id: student.student_id,
       name: student.name,
       class_id: student.class_id,
-      status: student.status||'active',
-      phone: student.phone||'',
-      student_phone: student.studentPhone||''
+      status: student.status||'active'
     },{onConflict:'student_id'});
     if(error) throw error;
     return true;
@@ -2417,7 +2405,7 @@ function resetSetup(){
   });
 })();
 
-function addStudent(){
+async function addStudent(){
   const rawName = (document.getElementById('sName')?.value||'').trim();
   const name = normalizeName(rawName);
   const cls = document.getElementById('sClass')?.value;
@@ -2431,10 +2419,14 @@ function addStudent(){
   const newStudent = {student_id:nextId, name:name, class_id:cls, status:'active', studentPhone:studentPhone, phone:phone};
   students[nextId] = newStudent;
   localStorage.setItem('se-students', JSON.stringify(students));
-  if(hasSB()) saveStudentToSB(newStudent);
+  if(hasSB()){
+    const ok = await saveStudentToSB(newStudent);
+    if(!ok){ showToast('DB 저장 실패. 다시 시도해주세요'); return; }
+  }
   showToast(name+' ('+cls+') 추가됐어요!');
   const el = document.getElementById('sName');
   if(el) el.value = '';
+  document.getElementById('addStudentModal')?.remove();
   if(document.getElementById('screen-student').classList.contains('active')) renderStudentPage();
   else renderAdmin();
 }
@@ -2527,8 +2519,7 @@ function deleteStudent(sid, name){
   localStorage.setItem('se-students', JSON.stringify(students));
   if(hasSB()){
     sb.from('students').delete().eq('student_id', sid).then(function(r){
-      if(r.error){ console.error('학생삭제실패', r.error); showToast('DB 삭제 실패 - 원장님께 문의'); }
-      else { console.log('학생 DB 삭제 완료:', sid); }
+      if(r.error) console.error('학생삭제실패', r.error);
     });
   }
   showToast(name + ' 삭제됐어요');
