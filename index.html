@@ -385,10 +385,17 @@ window.doLogin = doLogin;
 function doLogout(){
   CU = null; STORE = {clinic:{},teacher:{}}; navStack = [];
   localStorage.removeItem('se-session');
-  document.getElementById('loginId').value='';
-  document.getElementById('loginPin').value='';
-  document.getElementById('loginErr').textContent='';
-  showPage('pg-login');
+  const appEl = document.getElementById('pg-app');
+  const loginEl = document.getElementById('pg-login');
+  if(appEl){ appEl.classList.remove('active'); appEl.style.display='none'; }
+  if(loginEl){ loginEl.classList.add('active'); loginEl.style.display='flex'; }
+  const idEl = document.getElementById('loginId');
+  const pinEl = document.getElementById('loginPin');
+  const errEl = document.getElementById('loginErr');
+  if(idEl) idEl.value='';
+  if(pinEl) pinEl.value='';
+  if(errEl) errEl.textContent='';
+  window.scrollTo(0,0);
 }
 
 function enterApp(){
