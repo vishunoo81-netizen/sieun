@@ -339,27 +339,40 @@ async function doLogin(){
   console.log('doLogin 실행됨');
   const errEl = document.getElementById('loginErr');
   if(errEl){ errEl.textContent='로그인 시도 중...'; errEl.style.color='var(--g4)'; }
-  const id = (document.getElementById('loginId').value||'').trim();
-  const pin = (document.getElementById('loginPin').value||'').trim();
-  const err = msg=>{ if(errEl){ errEl.textContent=msg; errEl.style.color='#fca5a5'; } document.getElementById('loginPin').value=''; };
+  const id = String(document.getElementById('loginId').value||'').trim();
+  const pin = String(document.getElementById('loginPin').value||'').trim();
+  const err = msg=>{ if(errEl){ errEl.textContent=msg; errEl.style.color='#fca5a5'; } };
 
   if(!id){ err('아이디를 입력해주세요'); return; }
-  if(pin.length!==4||!/^\d{4}$/.test(pin)){ err('PIN 4자리 숫자를 입력해주세요'); return; }
+  if(!pin){ err('PIN을 입력해주세요'); return; }
   if(!sb){ err('서버 연결 실패. 새로고침 해주세요'); return; }
 
   if(errEl){ errEl.textContent='staff 조회 중...'; errEl.style.color='var(--g4)'; }
   try{
     const {data:staffList,error} = await sb.from('staff').select('*').eq('active',true);
-    console.log('staffList:', staffList ? staffList.length+'명' : '없음', error);
-    if(error){
-      err('DB 오류: ' + error.message);
-      return;
-    }
+    if(error){ err('DB 오류: '+error.message); return; }
     if(errEl){ errEl.textContent='staff 조회 완료: '+(staffList?staffList.length:0)+'명'; errEl.style.color='var(--g4)'; }
-    const data = (staffList||[]).find(t=>t.login_id===id && String(t.pin)===String(pin));
+
+    // 상세 디버그
+    const inputId = String(id).trim();
+    const inputPin = String(pin).trim();
+    console.log('입력 id:', inputId, '/ pin:', inputPin, '/ pin길이:', inputPin.length);
+    (staffList||[]).forEach(t=>{
+      const lid = String(t.login_id||'').trim();
+      const lpin = String(t.pin||'').trim();
+      const idMatch = lid === inputId;
+      const pinMatch = lpin === inputPin;
+      console.log(t.name, '| id일치:', idMatch, '| pin일치:', pinMatch, '| lid:', lid, '| lpin길이:', lpin.length);
+    });
+
+    const data = (staffList||[]).find(t=>
+      String(t.login_id||'').trim() === inputId &&
+      String(t.pin||'').trim() === inputPin
+    );
+
     if(!data){
-      const ids = (staffList||[]).map(t=>t.login_id).join(', ');
-      err('매칭 실패. 입력: '+id+' / 등록된 아이디: '+ids);
+      const ids = (staffList||[]).map(t=>String(t.login_id||'').trim()).join(', ');
+      err('매칭 실패. 조회된 아이디: '+ids);
       return;
     }
     CU = { id:data.id, name:data.name, role:data.role, classes:data.classes||[], loginId:data.login_id };
