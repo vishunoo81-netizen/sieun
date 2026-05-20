@@ -727,7 +727,7 @@ async function doLogin(){
     try{
       const {data:staffData} = await sb.from('staff').select('*');
       if(staffData&&staffData.length>0){
-        const found = staffData.find(t=>t.login_id===id && t.pin===pin && t.active!==false);
+        const found = staffData.find(t=>t.login_id===id && String(t.pin)===String(pin) && t.active!==false);
         if(found){
           const staffMap={};
           staffData.forEach(t=>{ staffMap[t.id]={teacher_id:t.id,name:t.name,loginId:t.login_id,pin:t.pin,role:t.role,classes:t.classes||[],active:t.active}; });
