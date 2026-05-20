@@ -799,11 +799,11 @@ function enterApp(){
 // 클리닉 엑셀 업로드 처리
 // 컬럼: 학생명, 반, 단어교재, 범위, 점수, 재시험, 집중도, 관찰메모
 // ============================================================
-function handleClinicExcel(e){
+async function handleClinicExcel(e){
   const file = e.target.files[0];
   if(!file) return;
   const reader = new FileReader();
-  reader.onload = function(ev){
+  reader.onload = async function(ev){
     try{
       const data = new Uint8Array(ev.target.result);
       const wb = XLSX.read(data,{type:'array'});
