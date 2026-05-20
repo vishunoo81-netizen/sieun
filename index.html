@@ -392,9 +392,13 @@ function doLogout(){
 }
 
 function enterApp(){
+  const loginEl = document.getElementById('pg-login');
+  const appEl = document.getElementById('pg-app');
+  if(loginEl){ loginEl.classList.remove('active'); loginEl.style.display='none'; }
+  if(appEl){ appEl.classList.add('active'); appEl.style.display='block'; }
+  window.scrollTo(0,0);
   const errEl = document.getElementById('loginErr');
   if(errEl) errEl.textContent='';
-  showPage('pg-app');
   loadTodayClinic();
   showMenu();
 }
